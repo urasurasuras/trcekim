@@ -1,0 +1,47 @@
+@page "/hizmetler"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Hizmetler – @SiteOptions.Value.Name</PageTitle>
+
+<h1>Hizmetlerimiz</h1>
+<p class="lead">Okul etkinliklerinden tanıtım filmlerine, fotoğraf ve video prodüksiyonunun her aşamasında yanınızdayız.</p>
+
+<div class="cards">
+    <div class="card"><h3>Okul çekimleri</h3><p class="muted">Mezuniyet, kep töreni, sene sonu gösterisi, okuma bayramı ve sınıf içi fotoğraf çekimleri.</p></div>
+    <div class="card"><h3>Video ve klip</h3><p class="muted">Gösteri ve tören kayıtları, klip ve tanıtım filmi çekimleri, kurgu ve montaj.</p></div>
+    <div class="card"><h3>Profesyonel ekipman</h3><p class="muted">Steadicam, jimmy jib ve helicam ile hareketli, sinematik çekimler.</p></div>
+    <div class="card"><h3>Özel günler</h3><p class="muted">Düğün, nişan ve kurumsal etkinlik çekimleri.</p></div>
+    <div class="card"><h3>Poster ve tablo</h3><p class="muted">Kalın kuşe poster baskılar ve çocuğunuzun fotoğraflarından oluşan kolaj tablolar.</p></div>
+    <div class="card"><h3>Duvar kağıdı</h3><p class="muted">Fotoğraflardan tasarlanan, çocuk odasına özel duvar ve tavan kaplamaları.</p></div>
+</div>
+
+@if (products.Count > 0)
+{
+    <section class="section">
+        <h2>Baskı fiyatları</h2>
+        <div class="table-wrap" style="max-width:560px">
+            <table class="data">
+                <tbody>
+                    @foreach (var p in products)
+                    {
+                        <tr>
+                            <td>@p.Name @if (!string.IsNullOrEmpty(p.Description)) { <br /><span class="muted">@p.Description</span> }</td>
+                            <td class="num">@p.Price.ToString("C", CultureInfo.CurrentCulture)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private List<Product> products = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        products = await db.Products.AsNoTracking().Where(p => p.IsActive).OrderBy(p => p.SortOrder).ToListAsync();
+    }
+}

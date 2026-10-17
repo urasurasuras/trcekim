@@ -1,0 +1,71 @@
+@page "/sepet"
+@inject CartService Cart
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Sepet – @SiteOptions.Value.Name</PageTitle>
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+<h1>Sepet</h1>
+
+@if (items.Count == 0)
+{
+    <p class="muted">Sepetiniz boş. <a href="galeri">Galerinize girip</a> fotoğraf seçebilirsiniz.</p>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr><th>Fotoğraf</th><th>Galeri</th><th>Ürün</th><th class="num">Fiyat</th><th>Adet</th><th class="num">Tutar</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var i in items)
+                {
+                    <tr>
+                        <td>
+                            <a href="galeri/@i.GalleryId/foto/@i.PhotoId">
+                                <img src="foto/@i.PhotoId/thumb" alt="" width="72" style="border-radius:6px;vertical-align:middle" />
+                                <span class="photo-no">@i.PhotoNumber</span>
+                            </a>
+                        </td>
+                        <td>@i.SchoolName<br /><span class="muted">@i.GalleryName</span></td>
+                        <td>@i.ProductName</td>
+                        <td class="num">@Money(i.UnitPrice)</td>
+                        <td>
+                            <form method="post" @formname="@($"line-{i.LineId}")" @onsubmit="() => UpdateAsync(i.LineId)" class="row" style="gap:6px;flex-wrap:nowrap">
+                                <AntiforgeryToken />
+                                <input type="number" name="qty" value="@i.Quantity" min="0" max="@CartService.MaxQuantity" style="width:72px" aria-label="Adet" />
+                                <button type="submit" class="btn small secondary">Güncelle</button>
+                            </form>
+                        </td>
+                        <td class="num">@Money(i.LineTotal)</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr><th colspan="5" class="num">Toplam</th><th class="num">@Money(items.Sum(i => i.LineTotal))</th></tr>
+            </tfoot>
+        </table>
+    </div>
+    <p class="muted">Bir satırı silmek için adedi 0 yapıp güncelleyin.</p>
+    <p><a class="btn" href="siparis">Siparişi tamamla</a></p>
+}
+
+@code {
+    [CascadingParameter] private HttpContext Http { get; set; } = default!;
+
+    [SupplyParameterFromForm(Name = "qty")]
+    private int? Qty { get; set; }
+
+    private IReadOnlyList<CartItem> items = [];
+
+    protected override async Task OnInitializedAsync() => items = await Cart.GetItemsAsync(Http);
+
+    private async Task UpdateAsync(int lineId)
+    {
+        await Cart.UpdateAsync(Http, lineId, Qty ?? 0);
+        items = await Cart.GetItemsAsync(Http);
+    }
+
+    private static string Money(decimal v) => v.ToString("C", CultureInfo.CurrentCulture);
+}

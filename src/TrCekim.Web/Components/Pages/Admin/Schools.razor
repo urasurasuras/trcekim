@@ -1,0 +1,137 @@
+@page "/admin/okullar"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>Yönetim – Okullar</PageTitle>
+
+<h1>Okullar</h1>
+
+<div class="card" style="margin-bottom:20px">
+    <h2>@(editing.Id == 0 ? "Yeni okul" : "Okulu düzenle")</h2>
+    <EditForm Model="editing" OnValidSubmit="SaveAsync" FormName="school">
+        <DataAnnotationsValidator />
+        <div class="row">
+            <div>
+                <label for="name">Ad</label>
+                <InputText id="name" @bind-Value="editing.Name" />
+                <ValidationMessage For="() => editing.Name" />
+            </div>
+            <div>
+                <label for="city">Şehir / semt</label>
+                <InputText id="city" @bind-Value="editing.City" />
+            </div>
+            <div>
+                <label style="font-weight:normal"><InputCheckbox @bind-Value="editing.ShowAsReference" /> Referanslar sayfasında göster</label>
+            </div>
+        </div>
+        <p class="row" style="margin-top:12px">
+            <button type="submit" class="btn" style="flex:0 0 auto">Kaydet</button>
+            @if (editing.Id != 0)
+            {
+                <button type="button" class="btn secondary" style="flex:0 0 auto" @onclick="New">Vazgeç</button>
+            }
+        </p>
+        @if (error is not null)
+        {
+            <p class="error">@error</p>
+        }
+    </EditForm>
+</div>
+
+<div class="table-wrap">
+    <table class="data">
+        <thead><tr><th>Okul</th><th>Şehir</th><th>Referans</th><th class="num">Galeri</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var s in schools)
+            {
+                <tr>
+                    <td>@s.Name</td>
+                    <td>@s.City</td>
+                    <td>@(s.ShowAsReference ? "Evet" : "")</td>
+                    <td class="num">@s.Galleries</td>
+                    <td class="num">
+                        <button class="btn small secondary" @onclick="() => Edit(s.Id)">Düzenle</button>
+                        @if (s.Galleries == 0)
+                        {
+                            <button class="btn small danger" @onclick="() => DeleteAsync(s.Id)">Sil</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private sealed record Row(int Id, string Name, string? City, bool ShowAsReference, int Galleries);
+
+    private List<Row> schools = [];
+    private SchoolInput editing = new();
+    private string? error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        schools = (await db.Schools.Select(s => new Row(s.Id, s.Name, s.City, s.ShowAsReference, s.Galleries.Count)).ToListAsync())
+            .OrderBy(s => s.Name, StringComparer.Create(CultureInfo.GetCultureInfo("tr-TR"), true))
+            .ToList();
+    }
+
+    private void New()
+    {
+        editing = new();
+        error = null;
+    }
+
+    private void Edit(int id)
+    {
+        var s = schools.First(x => x.Id == id);
+        editing = new SchoolInput { Id = s.Id, Name = s.Name, City = s.City, ShowAsReference = s.ShowAsReference };
+        error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var name = editing.Name!.Trim();
+        if (await db.Schools.AnyAsync(s => s.Name == name && s.Id != editing.Id))
+        {
+            error = "Bu isimde bir okul zaten var.";
+            return;
+        }
+
+        var school = editing.Id == 0 ? db.Schools.Add(new School { Name = name }).Entity : await db.Schools.FindAsync(editing.Id);
+        if (school is null)
+        {
+            return;
+        }
+        school.Name = name;
+        school.City = string.IsNullOrWhiteSpace(editing.City) ? null : editing.City.Trim();
+        school.ShowAsReference = editing.ShowAsReference;
+        await db.SaveChangesAsync();
+        New();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Schools.Where(s => s.Id == id && !s.Galleries.Any()).ExecuteDeleteAsync();
+        await LoadAsync();
+    }
+
+    private sealed class SchoolInput
+    {
+        public int Id { get; set; }
+
+        [Required(ErrorMessage = "Okul adı gerekli."), StringLength(200)]
+        public string? Name { get; set; }
+
+        [StringLength(100)]
+        public string? City { get; set; }
+
+        public bool ShowAsReference { get; set; }
+    }
+}

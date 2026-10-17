@@ -1,0 +1,37 @@
+@page "/admin"
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>Yönetim – Özet</PageTitle>
+
+<h1>Özet</h1>
+
+<div class="stats">
+    <a class="card stat" href="admin/galeriler"><strong>@galleries</strong> galeri (@published yayında)</a>
+    <a class="card stat" href="admin/galeriler"><strong>@photos</strong> fotoğraf</a>
+    <a class="card stat" href="admin/siparisler"><strong>@newOrders</strong> yeni sipariş</a>
+    <a class="card stat" href="admin/mesajlar"><strong>@unread</strong> okunmamış mesaj</a>
+</div>
+
+<section class="section">
+    <h2>Yeni bir etkinlik nasıl yayınlanır?</h2>
+    <ol>
+        <li><a href="admin/okullar">Okulu</a> ekleyin (bir kez).</li>
+        <li><a href="admin/galeriler">Galeri</a> oluşturun: sezon, etkinlik ve sınıf.</li>
+        <li>Fotoğrafları yükleyin. Dosya adı (ör. <code>017988.JPG</code>) fotoğraf numarası olur.</li>
+        <li>Galeriyi yayına alın ve kod kartlarını yazdırıp okula verin.</li>
+    </ol>
+</section>
+
+@code {
+    private int galleries, published, photos, newOrders, unread;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        galleries = await db.Galleries.CountAsync();
+        published = await db.Galleries.CountAsync(g => g.IsPublished);
+        photos = await db.Photos.CountAsync();
+        newOrders = await db.Orders.CountAsync(o => o.Status == OrderStatus.Received);
+        unread = await db.ContactMessages.CountAsync(m => !m.IsRead);
+    }
+}

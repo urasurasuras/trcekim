@@ -1,0 +1,41 @@
+﻿@page "/"
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>@SiteOptions.Value.Name – Okul fotoğraf ve video çekimleri</PageTitle>
+<HeadContent>
+    <meta name="description" content="@SiteOptions.Value.Tagline" />
+</HeadContent>
+
+<section class="hero">
+    <div>
+        <h1>Çocuğunuzun okul anıları, bir kodla elinizde.</h1>
+        <p>
+            Mezuniyetler, sene sonu gösterileri, okuma bayramları ve sınıf içi çekimler.
+            Okulunuzdan aldığınız galeri kodunu girin, fotoğrafları görün ve baskı siparişinizi verin.
+        </p>
+        <p><a class="btn secondary" href="hizmetler">Hizmetlerimiz</a></p>
+    </div>
+    <div class="card">
+        <h2>Galerinize girin</h2>
+        <p class="muted">Kod, okulunuz aracılığıyla size verilen kartın üzerinde yazar.</p>
+        <CodeForm Id="home" />
+    </div>
+</section>
+
+<section class="section">
+    <h2>Nasıl çalışır?</h2>
+    <div class="cards">
+        <div class="card">
+            <h3>1. Çekim</h3>
+            <p class="muted">Okulunuzun etkinliğini profesyonel ekipmanla fotoğraflıyor ve filme alıyoruz.</p>
+        </div>
+        <div class="card">
+            <h3>2. Galeri kodu</h3>
+            <p class="muted">Her sınıfın fotoğrafları, yalnızca o sınıfa verilen kodla açılan özel bir galeride yayınlanır.</p>
+        </div>
+        <div class="card">
+            <h3>3. Sipariş</h3>
+            <p class="muted">Beğendiğiniz fotoğrafları seçin, boyut ve adet belirleyin. Baskılar okul aracılığıyla ya da kargoyla teslim edilir.</p>
+        </div>
+    </div>
+</section>

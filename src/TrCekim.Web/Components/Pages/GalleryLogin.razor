@@ -1,0 +1,92 @@
+@page "/galeri"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject GalleryAccess Access
+@inject TimeProvider Clock
+@inject NavigationManager Nav
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Galerim – @SiteOptions.Value.Name</PageTitle>
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+<h1>Galerim</h1>
+
+<div class="order-photo">
+    <div class="card">
+        <p>Okulunuzdan aldığınız kartta yazan galeri kodunu girin.</p>
+
+        @* Handles posts from CodeForm (any page) via the shared "code" form name. *@
+        <EditForm Model="Input" FormName="code" OnValidSubmit="OpenAsync" method="post" style="display:none" />
+
+        @if (error is not null)
+        {
+            <p class="notice error" role="alert">@error</p>
+        }
+        <CodeForm Value="@Input.Code" />
+    </div>
+
+    @if (unlocked.Count > 0)
+    {
+        <div class="card">
+            <h2>Daha önce açtığınız galeriler</h2>
+            <ul>
+                @foreach (var g in unlocked)
+                {
+                    <li><a href="galeri/@g.Id">@g.School!.Name – @g.DisplayName</a></li>
+                }
+            </ul>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext Http { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "code")]
+    private CodeInput Input { get; set; } = default!;
+
+    private string? error;
+    private List<Gallery> unlocked = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        var ids = Access.Read(Http);
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var now = Clock.GetUtcNow();
+        unlocked = (await db.Galleries.Include(g => g.School).Where(g => ids.Contains(g.Id) && g.IsPublished).ToListAsync())
+            .Where(g => g.IsOpen(now))
+            .ToList();
+    }
+
+    private async Task OpenAsync()
+    {
+        var code = AccessCodes.Normalize(Input.Code);
+        if (code.Length < 4)
+        {
+            error = "Lütfen kodu kontrol edin.";
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var gallery = await db.Galleries.AsNoTracking().FirstOrDefaultAsync(g => g.AccessCode == code);
+        if (gallery is null || !gallery.IsOpen(Clock.GetUtcNow()))
+        {
+            error = $"Bu kodla açık bir galeri bulunamadı. Kodu kontrol edin veya bizi arayın: {SiteOptions.Value.Mobile}";
+            return;
+        }
+
+        Access.Grant(Http, gallery.Id);
+        Nav.NavigateTo($"galeri/{gallery.Id}");
+    }
+
+    public sealed class CodeInput
+    {
+        [Required, StringLength(20)]
+        public string? Code { get; set; }
+    }
+}

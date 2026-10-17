@@ -1,0 +1,114 @@
+@page "/iletisim"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject Notifier Notifier
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>İletişim – @Site.Name</PageTitle>
+
+<h1>İletişim</h1>
+
+<div class="order-photo">
+    <div class="card">
+        @if (sent)
+        {
+            <p class="notice ok" role="status">Mesajınız alındı. En kısa sürede size dönüş yapacağız.</p>
+        }
+        else
+        {
+            <EditForm Model="Input" FormName="contact" OnValidSubmit="SendAsync" method="post" class="stack">
+                <DataAnnotationsValidator />
+                <div>
+                    <label for="name">Adınız soyadınız</label>
+                    <InputText id="name" @bind-Value="Input.Name" />
+                    <ValidationMessage For="() => Input.Name" />
+                </div>
+                <div class="row">
+                    <div>
+                        <label for="email">E-posta</label>
+                        <InputText id="email" type="email" @bind-Value="Input.Email" />
+                        <ValidationMessage For="() => Input.Email" />
+                    </div>
+                    <div>
+                        <label for="phone">Telefon (isteğe bağlı)</label>
+                        <InputText id="phone" type="tel" @bind-Value="Input.Phone" />
+                        <ValidationMessage For="() => Input.Phone" />
+                    </div>
+                </div>
+                <div>
+                    <label for="message">Mesajınız</label>
+                    <InputTextArea id="message" @bind-Value="Input.Message" />
+                    <ValidationMessage For="() => Input.Message" />
+                </div>
+                @* Honeypot: hidden from people, filled in by bots. *@
+                <div class="hp" aria-hidden="true">
+                    <label for="website">Web sitesi</label>
+                    <InputText id="website" @bind-Value="Input.Website" tabindex="-1" autocomplete="off" />
+                </div>
+                <button type="submit" class="btn">Gönder</button>
+            </EditForm>
+        }
+    </div>
+
+    <div class="card">
+        <h2>İrtibat bilgileri</h2>
+        <p><strong>@Site.Name</strong><br />@Site.Address</p>
+        <p>
+            Telefon: <a href="tel:@Site.Phone.Replace(" ", "")">@Site.Phone</a><br />
+            GSM: <a href="tel:@Site.Mobile.Replace(" ", "")">@Site.Mobile</a><br />
+            E-posta: <a href="mailto:@Site.Email">@Site.Email</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm(FormName = "contact")]
+    private ContactInput Input { get; set; } = default!;
+
+    private bool sent;
+    private SiteOptions Site => SiteOptions.Value;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task SendAsync()
+    {
+        // Pretend success for bots so they do not retry.
+        if (!string.IsNullOrEmpty(Input.Website))
+        {
+            sent = true;
+            return;
+        }
+
+        var message = new ContactMessage
+        {
+            Name = Input.Name!.Trim(),
+            Email = Input.Email!.Trim(),
+            Phone = string.IsNullOrWhiteSpace(Input.Phone) ? null : Input.Phone.Trim(),
+            Message = Input.Message!.Trim(),
+        };
+
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            db.ContactMessages.Add(message);
+            await db.SaveChangesAsync();
+        }
+        await Notifier.ContactReceivedAsync(message);
+        sent = true;
+    }
+
+    public sealed class ContactInput
+    {
+        [Required(ErrorMessage = "Adınızı yazın."), StringLength(200)]
+        public string? Name { get; set; }
+
+        [Required(ErrorMessage = "E-posta gerekli."), EmailAddress(ErrorMessage = "Geçerli bir e-posta girin."), StringLength(200)]
+        public string? Email { get; set; }
+
+        [Phone(ErrorMessage = "Geçerli bir telefon girin."), StringLength(30)]
+        public string? Phone { get; set; }
+
+        [Required(ErrorMessage = "Mesajınızı yazın."), StringLength(4000, MinimumLength = 10, ErrorMessage = "Mesaj en az 10 karakter olmalı.")]
+        public string? Message { get; set; }
+
+        public string? Website { get; set; }
+    }
+}

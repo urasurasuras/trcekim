@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TrCekim.Core/TrCekim.Core.csproj" />
+    <Project Path="src/TrCekim.Data/TrCekim.Data.csproj" />
+    <Project Path="src/TrCekim.Web/TrCekim.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TrCekim.Tests/TrCekim.Tests.csproj" />
+  </Folder>
+</Solution>

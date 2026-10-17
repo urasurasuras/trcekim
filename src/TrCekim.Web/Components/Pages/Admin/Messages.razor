@@ -1,0 +1,58 @@
+@page "/admin/mesajlar"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>Yönetim – Mesajlar</PageTitle>
+
+<h1>İletişim mesajları</h1>
+
+@if (messages.Count == 0)
+{
+    <p class="muted">Mesaj yok.</p>
+}
+
+@foreach (var m in messages)
+{
+    <div class="card" style="margin-bottom:12px;@(m.IsRead ? "opacity:.75" : "")">
+        <div class="gallery-head" style="margin-bottom:8px">
+            <div>
+                <strong>@m.Name</strong>
+                <span class="muted">· <a href="mailto:@m.Email">@m.Email</a> @(m.Phone is null ? "" : $"· {m.Phone}")</span><br />
+                <span class="muted">@m.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+            </div>
+            <div class="row" style="flex:0 0 auto">
+                @if (!m.IsRead)
+                {
+                    <button class="btn small secondary" @onclick="() => MarkReadAsync(m)">Okundu</button>
+                }
+                <button class="btn small danger" @onclick="() => DeleteAsync(m)">Sil</button>
+            </div>
+        </div>
+        <p style="white-space:pre-line;margin:0">@m.Message</p>
+    </div>
+}
+
+@code {
+    private List<ContactMessage> messages = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        messages = (await db.ContactMessages.AsNoTracking().ToListAsync())
+            .OrderBy(m => m.IsRead).ThenByDescending(m => m.CreatedAt).ToList();
+    }
+
+    private async Task MarkReadAsync(ContactMessage m)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ContactMessages.Where(x => x.Id == m.Id).ExecuteUpdateAsync(x => x.SetProperty(p => p.IsRead, true));
+        m.IsRead = true;
+    }
+
+    private async Task DeleteAsync(ContactMessage m)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ContactMessages.Where(x => x.Id == m.Id).ExecuteDeleteAsync();
+        messages.Remove(m);
+    }
+}

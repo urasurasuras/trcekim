@@ -1,0 +1,329 @@
+@page "/admin/galeriler/{Id:guid}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IPhotoStore Store
+@inject IImageProcessor Images
+@inject NavigationManager Nav
+@inject ILogger<GalleryEdit> Log
+
+<PageTitle>Yönetim – Galeri</PageTitle>
+
+@if (gallery is null)
+{
+    <h1>Galeri bulunamadı</h1>
+    <p><a href="admin/galeriler">Galerilere dön</a></p>
+}
+else
+{
+    <p><a href="admin/galeriler">← Galeriler</a></p>
+    <div class="gallery-head">
+        <div>
+            <p class="muted" style="margin:0">@gallery.School!.Name</p>
+            <h1>@gallery.DisplayName</h1>
+        </div>
+        <div class="row" style="flex:0 0 auto">
+            <a class="btn secondary" href="galeri/@gallery.Id" target="_blank">Ziyaretçi gibi gör ↗</a>
+            <a class="btn secondary" href="admin/galeriler/@gallery.Id/kartlar" target="_blank">Kod kartları</a>
+        </div>
+    </div>
+
+    <div class="order-photo" style="grid-template-columns:1fr 1fr">
+        <div class="card">
+            <h2>Erişim</h2>
+            <p>Kod: <span class="photo-no" style="font-size:1.4rem">@AccessCodes.Format(gallery.AccessCode)</span></p>
+            <p>
+                Durum:
+                @if (gallery.IsPublished)
+                {
+                    <span class="pill ok">Yayında</span>
+                }
+                else
+                {
+                    <span class="pill warn">Taslak (veliler göremez)</span>
+                }
+            </p>
+            <div class="row">
+                <button class="btn" style="flex:0 0 auto" @onclick="TogglePublishAsync">@(gallery.IsPublished ? "Yayından kaldır" : "Yayına al")</button>
+                @if (confirmCode)
+                {
+                    <button class="btn danger" style="flex:0 0 auto" @onclick="RegenerateCodeAsync">Evet, eski kod geçersiz olsun</button>
+                    <button class="btn secondary" style="flex:0 0 auto" @onclick="() => confirmCode = false">Vazgeç</button>
+                }
+                else
+                {
+                    <button class="btn secondary" style="flex:0 0 auto" @onclick="() => confirmCode = true">Yeni kod üret</button>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Bilgiler</h2>
+            <EditForm Model="details" OnValidSubmit="SaveDetailsAsync" FormName="details" class="stack">
+                <DataAnnotationsValidator />
+                <div class="row">
+                    <div>
+                        <label for="season">Sezon</label>
+                        <InputText id="season" @bind-Value="details.Season" />
+                        <ValidationMessage For="() => details.Season" />
+                    </div>
+                    <div>
+                        <label for="group">Sınıf / grup</label>
+                        <InputText id="group" @bind-Value="details.GroupName" />
+                    </div>
+                </div>
+                <div>
+                    <label for="title">Etkinlik</label>
+                    <InputText id="title" @bind-Value="details.Title" />
+                    <ValidationMessage For="() => details.Title" />
+                </div>
+                <div class="row">
+                    <div>
+                        <label for="date">Tarih</label>
+                        <InputDate id="date" @bind-Value="details.EventDate" />
+                    </div>
+                    <div>
+                        <label for="expires">Son erişim tarihi</label>
+                        <InputDate id="expires" @bind-Value="details.ExpiresOn" />
+                    </div>
+                </div>
+                <div class="row">
+                    <button type="submit" class="btn" style="flex:0 0 auto">Kaydet</button>
+                    @if (saved)
+                    {
+                        <span class="muted">Kaydedildi.</span>
+                    }
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    <section class="section">
+        <h2>Fotoğraflar (@photos.Count)</h2>
+        <div class="card" style="margin-bottom:16px">
+            <label for="upload">Fotoğraf yükle (JPEG/PNG, birden çok seçebilirsiniz)</label>
+            <InputFile id="upload" OnChange="UploadAsync" multiple accept="image/jpeg,image/png" disabled="@uploading" />
+            <p class="muted" style="margin-bottom:0">Dosya adı fotoğraf numarası olarak kullanılır (ör. 017988.JPG → 017988).</p>
+            @if (uploading || uploadTotal > 0)
+            {
+                <div style="margin-top:12px">
+                    <div class="progress"><div style="width:@(uploadTotal == 0 ? 0 : uploadDone * 100 / uploadTotal)%"></div></div>
+                    <p class="muted">@uploadDone / @uploadTotal yüklendi@(uploading ? "…" : ".")</p>
+                </div>
+            }
+            @foreach (var e in uploadErrors)
+            {
+                <p class="error">@e</p>
+            }
+        </div>
+
+        <div class="admin-photos">
+            @foreach (var p in photos)
+            {
+                <figure>
+                    <img src="foto/@p.Id/thumb" alt="Foto @p.Number" loading="lazy" />
+                    <figcaption>
+                        <span class="photo-no">@p.Number</span>
+                        <button class="link-button" style="color:var(--danger);padding:2px 4px" title="Sil" @onclick="() => DeletePhotoAsync(p)">✕</button>
+                    </figcaption>
+                </figure>
+            }
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Galeriyi sil</h2>
+        <p class="muted">Galeri, tüm fotoğraf dosyalarıyla birlikte kalıcı olarak silinir. Verilmiş siparişler korunur.</p>
+        @if (confirmDelete)
+        {
+            <button class="btn danger" @onclick="DeleteGalleryAsync">Evet, kalıcı olarak sil</button>
+            <button class="btn secondary" @onclick="() => confirmDelete = false">Vazgeç</button>
+        }
+        else
+        {
+            <button class="btn danger" @onclick="() => confirmDelete = true">Galeriyi sil…</button>
+        }
+    </section>
+}
+
+@code {
+    private const long MaxUploadBytes = 60 * 1024 * 1024;
+    private const int MaxFilesPerBatch = 500;
+
+    [Parameter] public Guid Id { get; set; }
+
+    private Gallery? gallery;
+    private List<Photo> photos = [];
+    private DetailsInput details = new();
+    private bool saved, confirmCode, confirmDelete, uploading;
+    private int uploadDone, uploadTotal;
+    private List<string> uploadErrors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        gallery = await db.Galleries.AsNoTracking().Include(g => g.School).FirstOrDefaultAsync(g => g.Id == Id);
+        if (gallery is null)
+        {
+            return;
+        }
+
+        details = new DetailsInput
+        {
+            Season = gallery.Season,
+            Title = gallery.Title,
+            GroupName = gallery.GroupName,
+            EventDate = gallery.EventDate?.ToDateTime(TimeOnly.MinValue),
+            ExpiresOn = gallery.ExpiresAt?.LocalDateTime.Date,
+        };
+        await LoadPhotosAsync(db);
+    }
+
+    private async Task LoadPhotosAsync(AppDbContext db) =>
+        photos = await db.Photos.AsNoTracking().Where(p => p.GalleryId == Id)
+            .OrderBy(p => p.SortOrder).ThenBy(p => p.Number).ToListAsync();
+
+    private async Task SaveDetailsAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var g = await db.Galleries.FindAsync(Id);
+        if (g is null)
+        {
+            return;
+        }
+        g.Season = details.Season!.Trim();
+        g.Title = details.Title!.Trim();
+        g.GroupName = string.IsNullOrWhiteSpace(details.GroupName) ? null : details.GroupName.Trim();
+        g.EventDate = details.EventDate is { } d ? DateOnly.FromDateTime(d) : null;
+        // Access ends at the end of the chosen day (local time).
+        g.ExpiresAt = details.ExpiresOn is { } e ? new DateTimeOffset(e.Date.AddDays(1).AddTicks(-1), TimeZoneInfo.Local.GetUtcOffset(e)) : null;
+        await db.SaveChangesAsync();
+        gallery!.Season = g.Season;
+        gallery.Title = g.Title;
+        gallery.GroupName = g.GroupName;
+        saved = true;
+    }
+
+    private async Task TogglePublishAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var g = await db.Galleries.FindAsync(Id);
+        if (g is null)
+        {
+            return;
+        }
+        g.IsPublished = !g.IsPublished;
+        await db.SaveChangesAsync();
+        gallery!.IsPublished = g.IsPublished;
+    }
+
+    private async Task RegenerateCodeAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var g = await db.Galleries.FindAsync(Id);
+        if (g is null)
+        {
+            return;
+        }
+        g.AccessCode = await db.NewAccessCodeAsync();
+        await db.SaveChangesAsync();
+        gallery!.AccessCode = g.AccessCode;
+        confirmCode = false;
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        uploadErrors = [];
+        if (e.FileCount > MaxFilesPerBatch)
+        {
+            uploadErrors.Add($"Bir seferde en fazla {MaxFilesPerBatch} dosya yükleyebilirsiniz.");
+            return;
+        }
+
+        var files = e.GetMultipleFiles(MaxFilesPerBatch);
+        uploading = true;
+        uploadDone = 0;
+        uploadTotal = files.Count;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var nextOrder = (await db.Photos.Where(p => p.GalleryId == Id).MaxAsync(p => (int?)p.SortOrder) ?? 0) + 1;
+
+        // Upload in file-name order so photo numbers stay in camera order.
+        foreach (var file in files.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                using var buffer = new MemoryStream();
+                await using (var upload = file.OpenReadStream(MaxUploadBytes))
+                {
+                    await upload.CopyToAsync(buffer);
+                }
+
+                buffer.Position = 0;
+                var processed = await Task.Run(() => Images.Process(buffer));
+
+                var photo = new Photo
+                {
+                    GalleryId = Id,
+                    Number = PhotoNumbers.FromFileName(file.Name),
+                    OriginalFileName = Path.GetFileName(file.Name),
+                    Width = processed.Width,
+                    Height = processed.Height,
+                    SortOrder = nextOrder++,
+                };
+
+                buffer.Position = 0;
+                await Store.SaveAsync(Id, photo.Id, PhotoSize.Original, buffer);
+                await Store.SaveAsync(Id, photo.Id, PhotoSize.Web, new MemoryStream(processed.Web));
+                await Store.SaveAsync(Id, photo.Id, PhotoSize.Thumb, new MemoryStream(processed.Thumb));
+
+                db.Photos.Add(photo);
+                await db.SaveChangesAsync();
+            }
+            catch (Exception ex) when (ex is InvalidImageException or IOException)
+            {
+                uploadErrors.Add($"{file.Name}: {ex.Message}");
+                Log.LogWarning(ex, "Upload of {File} failed", file.Name);
+            }
+
+            uploadDone++;
+            StateHasChanged();
+        }
+
+        uploading = false;
+        await LoadPhotosAsync(db);
+    }
+
+    private async Task DeletePhotoAsync(Photo p)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Photos.Where(x => x.Id == p.Id).ExecuteDeleteAsync();
+        await Store.DeletePhotoAsync(Id, p.Id);
+        photos.Remove(p);
+    }
+
+    private async Task DeleteGalleryAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        // Order lines keep their snapshot; only the link to the photo is cleared.
+        await db.OrderLines.Where(l => l.PhotoId != null && db.Photos.Any(p => p.Id == l.PhotoId && p.GalleryId == Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.PhotoId, (Guid?)null));
+        await db.Galleries.Where(g => g.Id == Id).ExecuteDeleteAsync();
+        await Store.DeleteGalleryAsync(Id);
+        Nav.NavigateTo("admin/galeriler");
+    }
+
+    private sealed class DetailsInput
+    {
+        [Required(ErrorMessage = "Sezon gerekli."), StringLength(20)]
+        public string? Season { get; set; }
+
+        [Required(ErrorMessage = "Etkinlik adı gerekli."), StringLength(200)]
+        public string? Title { get; set; }
+
+        [StringLength(100)]
+        public string? GroupName { get; set; }
+
+        public DateTime? EventDate { get; set; }
+        public DateTime? ExpiresOn { get; set; }
+    }
+}

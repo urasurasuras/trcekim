@@ -1,0 +1,34 @@
+@page "/siparis/tamam/{Reference}"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Siparişiniz alındı – @SiteOptions.Value.Name</PageTitle>
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+@if (total is null)
+{
+    <h1>Sipariş bulunamadı</h1>
+}
+else
+{
+    <h1>Siparişiniz alındı</h1>
+    <div class="card" style="max-width:640px">
+        <p>Sipariş numaranız: <strong class="photo-no">@Reference</strong></p>
+        <p>Toplam: <strong>@total.Value.ToString("C", CultureInfo.CurrentCulture)</strong></p>
+        <p style="white-space:pre-line">@SiteOptions.Value.PaymentInstructions</p>
+        <p class="muted">Ödeme açıklamasına sipariş numaranızı yazmayı unutmayın. Sorularınız için: @SiteOptions.Value.Mobile</p>
+    </div>
+}
+
+@code {
+    [Parameter] public string Reference { get; set; } = "";
+
+    private decimal? total;
+
+    // Shows only the reference and the total, never the parent's details: the URL is shareable.
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        total = await db.Orders.Where(o => o.Reference == Reference).Select(o => (decimal?)o.Total).FirstOrDefaultAsync();
+    }
+}

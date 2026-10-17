@@ -1,0 +1,17 @@
+@* Plain HTML form so it can sit on any page; the /galeri page handles the "code" form post. *@
+<form method="post" action="galeri" class="stack">
+    <AntiforgeryToken />
+    <input type="hidden" name="_handler" value="code" />
+    <div>
+        <label for="code-@Id">Galeri kodu</label>
+        <input id="code-@Id" name="Input.Code" type="text" class="code-input" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ABCD-EFGH" required
+               value="@Value" />
+    </div>
+    <button type="submit" class="btn">Galeriyi aç</button>
+</form>
+
+@code {
+    [Parameter] public string Id { get; set; } = "main";
+    [Parameter] public string? Value { get; set; }
+}

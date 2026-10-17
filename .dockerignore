@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/data/
+.git/
+.claude/
+legacy/
+private/
+tests/
+docs/
+media/
+*.md
+.env

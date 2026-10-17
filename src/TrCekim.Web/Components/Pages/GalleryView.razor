@@ -1,0 +1,83 @@
+@page "/galeri/{Id:guid}"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject GalleryAccess Access
+@inject TimeProvider Clock
+@inject IOptions<SiteOptions> SiteOptions
+
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+@if (gallery is null)
+{
+    <PageTitle>Galeri – @SiteOptions.Value.Name</PageTitle>
+    <h1>Galeri</h1>
+    <div class="card" style="max-width:520px">
+        <p>Bu galeriyi görmek için galeri kodunu girin.</p>
+        <CodeForm />
+    </div>
+}
+else
+{
+    <PageTitle>@gallery.DisplayName – @SiteOptions.Value.Name</PageTitle>
+    <div class="gallery-head">
+        <div>
+            <p class="muted" style="margin:0">@gallery.School!.Name</p>
+            <h1>@gallery.DisplayName</h1>
+            @if (gallery.EventDate is { } d)
+            {
+                <p class="muted" style="margin:4px 0 0">@d.ToString("d MMMM yyyy", CultureInfo.CurrentCulture)</p>
+            }
+        </div>
+        <div class="muted">
+            @gallery.Photos.Count fotoğraf · Sipariş için fotoğraf numarasını not alabilir veya
+            <a href="sepet">sepete</a> ekleyebilirsiniz.
+        </div>
+    </div>
+
+    @if (gallery.Photos.Count == 0)
+    {
+        <p class="notice">Bu galeriye henüz fotoğraf yüklenmedi.</p>
+    }
+
+    <div class="photo-grid">
+        @foreach (var p in gallery.Photos)
+        {
+            <figure class="photo">
+                <a class="thumb" href="foto/@p.Id/web" data-lightbox="g" data-caption="Foto @p.Number"
+                   data-order="galeri/@gallery.Id/foto/@p.Id">
+                    <img src="foto/@p.Id/thumb" alt="Foto @p.Number" loading="lazy" />
+                </a>
+                <figcaption>
+                    <span class="photo-no">@p.Number</span>
+                    <a class="btn small secondary" href="galeri/@gallery.Id/foto/@p.Id">Sipariş</a>
+                </figcaption>
+            </figure>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private HttpContext Http { get; set; } = default!;
+
+    private Gallery? gallery;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Access.CanView(Http, Id))
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var g = await db.Galleries.AsNoTracking()
+            .Include(x => x.School)
+            .Include(x => x.Photos.OrderBy(p => p.SortOrder).ThenBy(p => p.Number))
+            .FirstOrDefaultAsync(x => x.Id == Id);
+
+        var isAdmin = Http.User.Identity?.IsAuthenticated == true;
+        if (g is not null && (isAdmin || g.IsOpen(Clock.GetUtcNow())))
+        {
+            gallery = g;
+        }
+    }
+}

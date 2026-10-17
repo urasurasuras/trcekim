@@ -4,6 +4,15 @@ Status: **L** = live in the legacy site, **P** = partial / unfinished in legacy,
 **N** = new (implied by the business or needed to replace a manual step).
 Priority: **M1** = rebuild parity (go-live), **M2** = ordering, **M3** = nice to have.
 
+## Implementation status (Blazor rewrite)
+
+- **Done:** 1, 2, 3, 4, 7, 8 (draft text; needs legal review), 9, 11, 12, 13, 14, 19, 20, 21,
+  22 v1 (offline payment instructions), 23 (confirmation page, status tracking, admin
+  e-mail; no customer e-mail yet), 24 (login and lockout; no 2FA yet), 25, 26, 27, 28, 29,
+  30, 35 (logo).
+- **Not started:** 5, 6, 10, 15 (video), 16 (watermark), 17, 18, 22 v2 (online payment),
+  31, 32 (retention purge job), 33, 34. Also 2FA for admins and a customer confirmation e-mail.
+
 ## Public site
 
 | # | Feature | Legacy | Prio |

@@ -1,0 +1,20 @@
+@page "/hakkimizda"
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Hakkımızda – @SiteOptions.Value.Name</PageTitle>
+
+<h1>Hakkımızda</h1>
+<div style="max-width:720px">
+    <p class="lead">
+        @SiteOptions.Value.Name, Dizi Production iştiraki olarak okulların özel günlerini fotoğraf ve videoyla belgeliyor.
+    </p>
+    <p>
+        Anaokulundan liseye, birçok okulun mezuniyet törenlerini, sene sonu gösterilerini ve sınıf etkinliklerini çektik.
+        Amacımız, çocukların bu özel anlarını en iyi kaliteyle kaydetmek ve ailelere kolay, güvenli bir şekilde ulaştırmak.
+    </p>
+    <p>
+        Fotoğraflar yalnızca ilgili sınıfa verilen kodla açılan özel galerilerde yayınlanır.
+        Aileler galeriyi inceleyip istedikleri fotoğrafların baskısını kolayca sipariş edebilir.
+    </p>
+    <p><a class="btn" href="iletisim">Bizimle iletişime geçin</a></p>
+</div>
