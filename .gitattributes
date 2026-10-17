@@ -1,0 +1,2 @@
+# Keep legacy files byte-for-byte (CRLF, mixed encodings)
+legacy/** -text

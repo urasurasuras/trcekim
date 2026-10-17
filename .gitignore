@@ -1,0 +1,29 @@
+# Credentials, duplicate legacy copy, unredacted files: never commit
+private/
+
+# Legacy design sources (large binaries)
+legacy/httpdocs/psd/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+*.DotSettings.user
+TestResults/
+publish/
+
+# Local runtime data
+*.db
+*.db-shm
+*.db-wal
+data/
+appsettings.Development.local.json
+.env
