@@ -1,0 +1,30 @@
+# OMV Compose plugin stack for the TRÇekim site.
+# Paste into OMV → Services → Compose → Files (name: trcekim), with the
+# environment from trcekim.env.example in the "Environment" box, or run:
+#   docker compose -f trcekim.yml --env-file trcekim.env up -d --build
+services:
+  trcekim:
+    # Builds straight from GitHub, so the host needs no checkout. Switch the
+    # branch to #main once the rewrite is merged.
+    build:
+      context: https://github.com/urasurasuras/trcekim.git#feature/blazor-rewrite
+    image: local/trcekim:latest
+    container_name: trcekim
+    restart: unless-stopped
+    # Same owner as the other appdata folders (see claude-dev.yml PUID/PGID).
+    user: "1000:100"
+    environment:
+      - TZ=Europe/Istanbul
+      - Admin__Email=${ADMIN_EMAIL}
+      - Admin__Password=${ADMIN_PASSWORD}
+      - Smtp__Host=${SMTP_HOST:-}
+      - Smtp__User=${SMTP_USER:-}
+      - Smtp__Password=${SMTP_PASSWORD:-}
+      - Smtp__From=${SMTP_FROM:-}
+      - Smtp__NotifyTo=${SMTP_NOTIFY_TO:-}
+    volumes:
+      # SQLite DB, photos and Data Protection keys. Include in backups.
+      - /srv/dev-disk-by-uuid-03d52f78-cc5f-4477-b6b3-1cbf9daac6e0/appdata/trcekim:/data
+    ports:
+      # host:container. 8080 is OMV, 8081 is code-server.
+      - "8090:8080"

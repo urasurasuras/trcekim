@@ -27,3 +27,6 @@ publish/
 data/
 appsettings.Development.local.json
 .env
+
+# Deployment secrets
+deploy/**/*.env

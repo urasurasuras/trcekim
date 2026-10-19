@@ -26,6 +26,7 @@ This repo revives the 2012–2016 ASP.NET WebForms site (in `legacy/`) as a mode
 - `tests/TrCekim.Tests/`: xUnit unit tests plus `WebApplicationFactory` HTTP tests (`WebTests.cs`).
 - `CNAME`, `index.html`, `media/`: the GitHub Pages "under construction" page that serves
   www.trcekim.com from `main`. Leave them alone until hosting is switched.
+- `deploy/omv/`: compose stack and runbook for the owner's OMV server (port 8090, builds from GitHub).
 - `docs/`: analysis and feature list.
 
 ## Target stack (decided defaults, change only with the user)
