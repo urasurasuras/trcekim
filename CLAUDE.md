@@ -4,7 +4,8 @@ TRÇekim: a website for a school-event photography/videography contractor. Paren
 their child's event gallery with an access code and order prints. The photographer
 manages schools, events, galleries, uploads and orders.
 
-This repo revives the 2012–2016 ASP.NET WebForms site (in `legacy/`) as a modern app.
+This repo revives the 2012–2016 ASP.NET WebForms site as a modern app. The old site is no
+longer in the tree; it is kept in git history under the tag `legacy-webforms`.
 
 - Feature list and milestones: `docs/features.md`. This is the source of truth for scope;
   update it when scope changes.
@@ -12,9 +13,10 @@ This repo revives the 2012–2016 ASP.NET WebForms site (in `legacy/`) as a mode
 
 ## Repo layout
 
-- `legacy/httpdocs/`: the old site, kept as **read-only reference**. Never edit or deploy it.
-  Mine it for content (texts, contact info, prices, school list) and assets (logo, school
-  logos, slider images).
+- Old site: tag `legacy-webforms`, folder `legacy/httpdocs/`. It is **read-only reference**:
+  never restore, edit or deploy it. Read it with `git show legacy-webforms:legacy/httpdocs/<file>`,
+  or check it out with `git worktree add ../trcekim-legacy legacy-webforms`. Mine it for
+  content (texts, contact info, prices, school list) and assets (logo, school logos, slider images).
 - `private/` (git-ignored): FTP/DB credential notes, a duplicate old copy, and the unredacted
   `conn.cs`. Never commit it, and never copy anything from it into tracked files.
 - `src/TrCekim.Core/`: entities, access-code rules, interfaces (`IPhotoStore`, `IImageProcessor`). No ASP.NET deps.
@@ -26,7 +28,15 @@ This repo revives the 2012–2016 ASP.NET WebForms site (in `legacy/`) as a mode
 - `tests/TrCekim.Tests/`: xUnit unit tests plus `WebApplicationFactory` HTTP tests (`WebTests.cs`).
 - `CNAME`, `index.html`, `media/`: the GitHub Pages "under construction" page that serves
   www.trcekim.com from `main`. Leave them alone until hosting is switched.
-- `deploy/omv/`: compose stack and runbook for the owner's OMV server (port 8090, builds from GitHub).
+- `deploy/omv/`: the owner's OMV server. `trcekim.yml` is one environment (prod = `main` on
+  port 8090, dev = `dev` on port 8091). `infra.yml` runs the deployer, which rebuilds an
+  environment when its branch moves, and Mailpit, which catches all outgoing mail. See its README.
+
+## Branches
+
+`main` is production (trcekim.uras.app) and `dev` is the dev site (dev-trcekim.uras.app).
+Both redeploy automatically on OMV when they move. Work on a feature branch, open a PR into
+`dev`, then a PR from `dev` into `main`. Never push to `main` directly.
 - `docs/`: analysis and feature list.
 
 ## Target stack (decided defaults, change only with the user)

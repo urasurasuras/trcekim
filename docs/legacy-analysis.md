@@ -1,6 +1,6 @@
 # Legacy system analysis (trcekim.com, 2012–2016)
 
-Source: `legacy/httpdocs/` (canonical copy of the production `httpdocs`, taken from
+Source: `legacy/httpdocs/` at the git tag `legacy-webforms` (removed from the tree later; canonical copy of the production `httpdocs`, taken from
 "TRCekim Site kopyasi Can"). A second, older copy plus FTP/DB credential notes live in
 the git-ignored `private/` folder.
 

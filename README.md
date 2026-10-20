@@ -5,7 +5,8 @@ their child's event gallery with an access code and order prints. The photograph
 manages schools, galleries, uploads, prices and orders.
 
 It is a .NET 10 Blazor Web App with EF Core + SQLite and SkiaSharp, shipped as one Docker
-image. The original 2012–2016 ASP.NET WebForms site is kept in `legacy/` for reference.
+image. The original 2012–2016 ASP.NET WebForms site is kept in git history under the tag
+`legacy-webforms` (`git worktree add ../trcekim-legacy legacy-webforms`).
 
 ## Run locally
 
@@ -30,6 +31,9 @@ The app listens on port 8080 over plain HTTP. Put a TLS reverse proxy in front o
 (Nginx Proxy Manager, Caddy, Traefik). All state is in the `/data` volume: SQLite DB,
 photos and Data Protection keys. **Back up that volume.** After the first login, remove
 `ADMIN_PASSWORD` from `.env`.
+
+The owner's server runs a prod (`main`) and a dev (`dev`) copy that redeploy themselves on
+every merge: see `deploy/omv/README.md`.
 
 Edit the business details shown on the site (address, phones, payment instructions) under
 `Site` in `src/TrCekim.Web/appsettings.json`, or override them with `Site__*` environment
