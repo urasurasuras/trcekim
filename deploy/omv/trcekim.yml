@@ -1,31 +1,44 @@
-# OMV Compose plugin stack for the TRÇekim site.
-# Paste into OMV → Services → Compose → Files (name: trcekim), with the
-# environment from trcekim.env.example in the "Environment" box, or run:
-#   docker compose -f trcekim.yml --env-file trcekim.env up -d --build
+# One TRÇekim environment (prod or dev). The deployer (infra.yml) runs this file from
+# a checkout of the environment's branch, so changes to it ship with the branch:
+#   docker compose -f deploy/omv/trcekim.yml -p <project> --env-file <project>.env up -d
+# The env files live on the host (see trcekim.env.example, trcekim-dev.env.example).
 services:
   trcekim:
-    # Builds from the checkout on the shared development disk (the OMV host has no
-    # git, which remote GitHub build contexts need). Point TRCEKIM_SRC at the main
-    # checkout once the rewrite is merged.
     build:
-      context: ${TRCEKIM_SRC:-/srv/dev-disk-by-uuid-03d52f78-cc5f-4477-b6b3-1cbf9daac6e0/development/trcekim/.claude/worktrees/blazor-rewrite}
-    image: local/trcekim:latest
-    container_name: trcekim
+      # Repo root of the checkout this file belongs to.
+      context: ../..
+      labels:
+        # Lets the deployer prune old builds of this app only.
+        app: trcekim
+    image: local/${CONTAINER_NAME:?}:latest
+    container_name: ${CONTAINER_NAME:?}
     restart: unless-stopped
     # Same owner as the other appdata folders (see claude-dev.yml PUID/PGID).
     user: "1000:100"
     environment:
       - TZ=Europe/Istanbul
-      - Admin__Email=${ADMIN_EMAIL}
-      - Admin__Password=${ADMIN_PASSWORD}
-      - Smtp__Host=${SMTP_HOST:-}
+      - Admin__Email=${ADMIN_EMAIL:-}
+      - Admin__Password=${ADMIN_PASSWORD:-}
+      # Defaults point at the shared Mailpit container, which catches all mail.
+      - Smtp__Host=${SMTP_HOST:-mailpit}
+      - Smtp__Port=${SMTP_PORT:-1025}
+      - Smtp__EnableSsl=${SMTP_ENABLE_SSL:-false}
       - Smtp__User=${SMTP_USER:-}
       - Smtp__Password=${SMTP_PASSWORD:-}
       - Smtp__From=${SMTP_FROM:-}
       - Smtp__NotifyTo=${SMTP_NOTIFY_TO:-}
     volumes:
       # SQLite DB, photos and Data Protection keys. Include in backups.
-      - /srv/dev-disk-by-uuid-03d52f78-cc5f-4477-b6b3-1cbf9daac6e0/appdata/trcekim:/data
+      - ${DATA_DIR:?}:/data
     ports:
       # host:container. 8080 is OMV, 8081 is code-server.
-      - "8090:8080"
+      - "${HOST_PORT:?}:8080"
+    networks:
+      - default
+      - mail
+
+networks:
+  # Created by infra.yml.
+  mail:
+    name: trcekim-mail
+    external: true

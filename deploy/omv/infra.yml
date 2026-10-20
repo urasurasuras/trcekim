@@ -1,0 +1,49 @@
+# Shared services for the TRÇekim environments on OMV. Copy this file and deployer/
+# to /docker/docker-compose/trcekim, next to the env files, then:
+#   docker compose -f infra.yml --env-file infra.env up -d --build
+services:
+  # Local SMTP server that catches every e-mail the sites send. Nothing is relayed.
+  mailpit:
+    image: axllent/mailpit:v1.27.10
+    container_name: trcekim-mailpit
+    restart: unless-stopped
+    user: "1000:100"
+    environment:
+      - TZ=Europe/Istanbul
+      - MP_DATABASE=/data/mailpit.db
+      - MP_MAX_MESSAGES=5000
+      - MP_SMTP_AUTH_ACCEPT_ANY=true
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    volumes:
+      - ${APPDATA:?}/trcekim-mailpit:/data
+    ports:
+      # Web UI, LAN only. SMTP (1025) is reachable only on the trcekim-mail network.
+      - "8025:8025"
+    networks:
+      - mail
+
+  # Polls GitHub and rebuilds an environment when its branch moves (deployer/deploy.sh).
+  deployer:
+    build: ./deployer
+    image: local/trcekim-deployer:latest
+    container_name: trcekim-deployer
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Istanbul
+      - REPO_URL=${REPO_URL:?}
+      - POLL_SECONDS=${POLL_SECONDS:-60}
+      # "<compose project>:<branch>" pairs; each project reads <project>.env from here.
+      - ENVIRONMENTS=${ENVIRONMENTS:-trcekim:main trcekim-dev:dev}
+      - STATE_DIR=/state
+      - CONFIG_DIR=/config
+    volumes:
+      # Full control of the host's Docker, as needed to build and start the sites.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Checkouts, deploy state and the read-only GitHub deploy key (ssh/).
+      - ${APPDATA:?}/trcekim-deployer:/state
+      # The env files (trcekim.env, trcekim-dev.env).
+      - .:/config:ro
+
+networks:
+  mail:
+    name: trcekim-mail
