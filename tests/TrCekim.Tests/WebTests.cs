@@ -260,6 +260,49 @@ public class WebTests(TrCekimFactory factory) : IClassFixture<TrCekimFactory>
         Assert.False(await db.ContactMessages.AnyAsync(m => m.Email == "bot@example.com"));
     }
 
+    [Fact]
+    public async Task Contact_form_accepts_blank_optional_fields_as_posted_by_a_browser()
+    {
+        // A browser posts every field, so the empty phone and honeypot arrive as "".
+        var client = NewClient();
+        var ok = await PostFormAsync(client, "/iletisim", new()
+        {
+            ["_handler"] = "contact", ["Input.Name"] = "Veli", ["Input.Email"] = "bos-telefon@example.com",
+            ["Input.Phone"] = "", ["Input.Message"] = "Telefon numarası vermeden bilgi almak istiyorum.",
+            ["Input.Website"] = "",
+        });
+        var html = await ok.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Geçerli bir telefon", html);
+        Assert.Contains("Mesajınız alındı", html);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var message = await db.ContactMessages.SingleAsync(m => m.Email == "bos-telefon@example.com");
+        Assert.Null(message.Phone);
+    }
+
+    [Fact]
+    public async Task Checkout_accepts_blank_optional_fields_as_posted_by_a_browser()
+    {
+        var (gallery, photo) = await factory.SeedGalleryAsync();
+        var client = NewClient();
+        await EnterCodeAsync(client, gallery.AccessCode);
+        await PostFormAsync(client, $"/galeri/{gallery.Id}/foto/{photo.Id}", new()
+        {
+            ["_handler"] = "add", ["Input.ProductId"] = "1", ["Input.Quantity"] = "1",
+        });
+
+        var checkout = await PostFormAsync(client, "/siparis", new()
+        {
+            ["_handler"] = "checkout", ["Input.StudentName"] = "A", ["Input.ParentName"] = "B",
+            ["Input.Relation"] = "", ["Input.Phone"] = "05321234567", ["Input.Email"] = "",
+            ["Input.Delivery"] = "ViaSchool", ["Input.ShippingAddress"] = "", ["Input.Note"] = "",
+            ["Input.Consent"] = "true",
+        });
+        Assert.DoesNotContain("Geçerli bir e-posta", await checkout.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Redirect, checkout.StatusCode);
+    }
+
     [Theory]
     [InlineData("/admin")]
     [InlineData("/admin/galeriler")]

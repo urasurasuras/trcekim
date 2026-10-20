@@ -138,8 +138,9 @@ else
         [Required(ErrorMessage = "Telefon gerekli."), Phone(ErrorMessage = "Geçerli bir telefon girin."), StringLength(30)]
         public string? Phone { get; set; }
 
+        // SSR form binding keeps a blank field as "", which [EmailAddress] rejects; treat it as absent.
         [EmailAddress(ErrorMessage = "Geçerli bir e-posta girin."), StringLength(200)]
-        public string? Email { get; set; }
+        public string? Email { get; set => field = string.IsNullOrWhiteSpace(value) ? null : value; }
 
         public DeliveryMethod Delivery { get; set; }
 
