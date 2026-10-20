@@ -1,0 +1,23 @@
+# Runs the site behind a reverse proxy (e.g. Nginx Proxy Manager) that terminates TLS.
+# First start: put the admin credentials in .env (git-ignored), start, log in at
+# /admin/giris, then remove ADMIN_PASSWORD from .env.
+services:
+  web:
+    build: .
+    image: trcekim:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - trcekim-data:/data
+    environment:
+      Admin__Email: ${ADMIN_EMAIL:-}
+      Admin__Password: ${ADMIN_PASSWORD:-}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-}
+      Smtp__NotifyTo: ${SMTP_NOTIFY_TO:-}
+
+volumes:
+  trcekim-data:

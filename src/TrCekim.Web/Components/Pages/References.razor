@@ -1,0 +1,40 @@
+@page "/referanslar"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Referanslar – @SiteOptions.Value.Name</PageTitle>
+
+<h1>Referanslarımız</h1>
+<p class="lead">Birlikte çalıştığımız okullardan bazıları.</p>
+
+@if (schools.Count == 0)
+{
+    <p class="muted">Referans listesi yakında burada olacak.</p>
+}
+else
+{
+    <div class="cards">
+        @foreach (var s in schools)
+        {
+            <div class="card">
+                <h3>@s.Name</h3>
+                @if (!string.IsNullOrEmpty(s.City))
+                {
+                    <p class="muted">@s.City</p>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<School> schools = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        schools = (await db.Schools.AsNoTracking().Where(s => s.ShowAsReference).ToListAsync())
+            .OrderBy(s => s.Name, StringComparer.Create(CultureInfo.CurrentCulture, ignoreCase: true))
+            .ToList();
+    }
+}

@@ -1,0 +1,70 @@
+@page "/admin/giris"
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignIn
+@inject NavigationManager Nav
+
+<PageTitle>Yönetici girişi</PageTitle>
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+<h1>Yönetici girişi</h1>
+
+<div class="card" style="max-width:440px">
+    @if (error is not null)
+    {
+        <p class="notice error" role="alert">@error</p>
+    }
+    <EditForm Model="Input" FormName="login" OnValidSubmit="LoginAsync" method="post" class="stack">
+        <DataAnnotationsValidator />
+        <div>
+            <label for="email">E-posta</label>
+            <InputText id="email" type="email" autocomplete="username" @bind-Value="Input.Email" />
+            <ValidationMessage For="() => Input.Email" />
+        </div>
+        <div>
+            <label for="password">Şifre</label>
+            <InputText id="password" type="password" autocomplete="current-password" @bind-Value="Input.Password" />
+            <ValidationMessage For="() => Input.Password" />
+        </div>
+        <button type="submit" class="btn">Giriş</button>
+    </EditForm>
+</div>
+
+@code {
+    [SupplyParameterFromForm(FormName = "login")]
+    private LoginInput Input { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? error;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task LoginAsync()
+    {
+        var result = await SignIn.PasswordSignInAsync(Input.Email!, Input.Password!, isPersistent: false, lockoutOnFailure: true);
+        if (result.Succeeded)
+        {
+            // Only local paths: never redirect to another site.
+            var target = ReturnUrl is { Length: > 0 } r && Uri.IsWellFormedUriString(r, UriKind.Relative) && !r.StartsWith("//")
+                && !r.StartsWith("/\\")
+                ? r.TrimStart('/')
+                : "admin";
+            Nav.NavigateTo(target, forceLoad: true);
+            return;
+        }
+
+        error = result.IsLockedOut
+            ? "Çok fazla hatalı deneme. Hesap 15 dakika kilitlendi."
+            : "E-posta veya şifre hatalı.";
+    }
+
+    public sealed class LoginInput
+    {
+        [Required(ErrorMessage = "E-posta gerekli."), EmailAddress]
+        public string? Email { get; set; }
+
+        [Required(ErrorMessage = "Şifre gerekli.")]
+        public string? Password { get; set; }
+    }
+}

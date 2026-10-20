@@ -1,0 +1,157 @@
+@page "/admin/galeriler"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager Nav
+
+<PageTitle>Yönetim – Galeriler</PageTitle>
+
+<h1>Galeriler</h1>
+
+@if (schools.Count == 0)
+{
+    <p class="notice">Önce bir <a href="admin/okullar">okul</a> ekleyin.</p>
+}
+else
+{
+    <div class="card" style="margin-bottom:20px">
+        <h2>Yeni galeri</h2>
+        <EditForm Model="input" OnValidSubmit="CreateAsync" FormName="new-gallery">
+            <DataAnnotationsValidator />
+            <div class="row">
+                <div>
+                    <label for="school">Okul</label>
+                    <InputSelect id="school" @bind-Value="input.SchoolId">
+                        @foreach (var s in schools)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div>
+                    <label for="season">Sezon</label>
+                    <InputText id="season" @bind-Value="input.Season" placeholder="2025-2026" />
+                    <ValidationMessage For="() => input.Season" />
+                </div>
+                <div>
+                    <label for="title">Etkinlik</label>
+                    <InputText id="title" @bind-Value="input.Title" placeholder="Sene sonu gösterisi" />
+                    <ValidationMessage For="() => input.Title" />
+                </div>
+                <div>
+                    <label for="group">Sınıf / grup</label>
+                    <InputText id="group" @bind-Value="input.GroupName" placeholder="4-A" />
+                </div>
+                <div>
+                    <label for="date">Tarih</label>
+                    <InputDate id="date" @bind-Value="input.EventDate" />
+                </div>
+            </div>
+            <p><button type="submit" class="btn">Oluştur</button></p>
+        </EditForm>
+    </div>
+}
+
+<div class="row" style="margin-bottom:12px">
+    <div>
+        <label for="filter">Ara</label>
+        <input id="filter" type="text" @bind="filter" @bind:event="oninput" placeholder="Okul, sezon, etkinlik, sınıf veya kod" />
+    </div>
+</div>
+
+<div class="table-wrap">
+    <table class="data">
+        <thead><tr><th>Okul</th><th>Galeri</th><th>Kod</th><th class="num">Foto</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var g in Filtered)
+            {
+                <tr>
+                    <td>@g.School</td>
+                    <td>@g.Name</td>
+                    <td class="photo-no">@AccessCodes.Format(g.Code)</td>
+                    <td class="num">@g.Photos</td>
+                    <td>
+                        @if (g.Published)
+                        {
+                            <span class="pill ok">Yayında</span>
+                        }
+                        else
+                        {
+                            <span class="pill warn">Taslak</span>
+                        }
+                    </td>
+                    <td class="num"><a class="btn small secondary" href="admin/galeriler/@g.Id">Aç</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private sealed record Row(Guid Id, string School, string Name, string Season, string Code, int Photos, bool Published, DateTimeOffset Created);
+
+    private List<School> schools = [];
+    private List<Row> rows = [];
+    private string filter = "";
+    private GalleryInput input = new();
+
+    private IEnumerable<Row> Filtered => string.IsNullOrWhiteSpace(filter)
+        ? rows
+        : rows.Where(r => $"{r.School} {r.Name} {r.Code}".Contains(filter.Trim(), StringComparison.CurrentCultureIgnoreCase)
+                          || r.Code.Contains(AccessCodes.Normalize(filter)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        schools = (await db.Schools.ToListAsync()).OrderBy(s => s.Name, StringComparer.Create(CultureInfo.GetCultureInfo("tr-TR"), true)).ToList();
+        input.SchoolId = schools.FirstOrDefault()?.Id ?? 0;
+        input.Season = CurrentSeason();
+
+        var list = await db.Galleries.Include(g => g.School)
+            .Select(g => new { g, Count = g.Photos.Count })
+            .ToListAsync();
+        rows = list
+            .Select(x => new Row(x.g.Id, x.g.School!.Name, x.g.DisplayName, x.g.Season, x.g.AccessCode, x.Count, x.g.IsPublished, x.g.CreatedAt))
+            .OrderByDescending(r => r.Created)
+            .ToList();
+    }
+
+    private async Task CreateAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var gallery = new Gallery
+        {
+            SchoolId = input.SchoolId,
+            Season = input.Season!.Trim(),
+            Title = input.Title!.Trim(),
+            GroupName = string.IsNullOrWhiteSpace(input.GroupName) ? null : input.GroupName.Trim(),
+            EventDate = input.EventDate is { } d ? DateOnly.FromDateTime(d) : null,
+            AccessCode = await db.NewAccessCodeAsync(),
+        };
+        db.Galleries.Add(gallery);
+        await db.SaveChangesAsync();
+        Nav.NavigateTo($"admin/galeriler/{gallery.Id}");
+    }
+
+    private static string CurrentSeason()
+    {
+        var now = DateTime.Now;
+        var start = now.Month >= 8 ? now.Year : now.Year - 1;
+        return $"{start}-{start + 1}";
+    }
+
+    private sealed class GalleryInput
+    {
+        public int SchoolId { get; set; }
+
+        [Required(ErrorMessage = "Sezon gerekli."), StringLength(20)]
+        public string? Season { get; set; }
+
+        [Required(ErrorMessage = "Etkinlik adı gerekli."), StringLength(200)]
+        public string? Title { get; set; }
+
+        [StringLength(100)]
+        public string? GroupName { get; set; }
+
+        public DateTime? EventDate { get; set; }
+    }
+}

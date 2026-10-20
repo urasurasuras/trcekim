@@ -1,0 +1,51 @@
+﻿@inherits LayoutComponentBase
+@inject IOptions<SiteOptions> SiteOptions
+
+<header class="site-header">
+    <div class="container header-inner">
+        <a class="brand" href="">
+            <img src="img/logo.png" alt="@Site.Name logosu" width="56" height="51" />
+            <span>@Site.Name</span>
+        </a>
+        <nav class="site-nav" aria-label="Ana menü">
+            <NavLink href="" Match="NavLinkMatch.All">Ana sayfa</NavLink>
+            <NavLink href="hizmetler">Hizmetler</NavLink>
+            <NavLink href="referanslar">Referanslar</NavLink>
+            <NavLink href="hakkimizda">Hakkımızda</NavLink>
+            <NavLink href="iletisim">İletişim</NavLink>
+            <NavLink href="galeri" class="nav-cta">Galerim</NavLink>
+            <NavLink href="sepet">Sepet</NavLink>
+        </nav>
+    </div>
+</header>
+
+<main class="container site-main">
+    @Body
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-inner">
+        <div>
+            <strong>@Site.Name</strong><br />
+            @Site.Address
+        </div>
+        <div>
+            <a href="tel:@Site.Phone.Replace(" ", "")">@Site.Phone</a><br />
+            <a href="mailto:@Site.Email">@Site.Email</a>
+        </div>
+        <div>
+            <a href="gizlilik">Gizlilik ve KVKK</a><br />
+            © @DateTime.Now.Year @Site.Name
+        </div>
+    </div>
+</footer>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Beklenmeyen bir hata oluştu.
+    <a href="." class="reload">Yenile</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private SiteOptions Site => SiteOptions.Value;
+}

@@ -1,0 +1,155 @@
+@page "/siparis"
+@inject CartService Cart
+@inject Notifier Notifier
+@inject NavigationManager Nav
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Siparişi tamamla – @SiteOptions.Value.Name</PageTitle>
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+<h1>Siparişi tamamla</h1>
+
+@if (items.Count == 0)
+{
+    <p class="muted">Sepetiniz boş. <a href="galeri">Galerinize dönün.</a></p>
+}
+else
+{
+    <p class="lead">@items.Sum(i => i.Quantity) baskı · Toplam <strong>@items.Sum(i => i.LineTotal).ToString("C", CultureInfo.CurrentCulture)</strong> · <a href="sepet">Sepeti düzenle</a></p>
+
+    @if (error is not null)
+    {
+        <p class="notice error" role="alert">@error</p>
+    }
+
+    <EditForm Model="Input" FormName="checkout" OnValidSubmit="PlaceAsync" method="post" class="stack">
+        <DataAnnotationsValidator />
+        <div class="row">
+            <div>
+                <label for="student">Öğrencinin adı soyadı</label>
+                <InputText id="student" @bind-Value="Input.StudentName" />
+                <ValidationMessage For="() => Input.StudentName" />
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label for="parent">Velinin adı soyadı</label>
+                <InputText id="parent" @bind-Value="Input.ParentName" />
+                <ValidationMessage For="() => Input.ParentName" />
+            </div>
+            <div>
+                <label for="relation">Yakınlık</label>
+                <InputSelect id="relation" @bind-Value="Input.Relation">
+                    <option value="">Seçin</option>
+                    <option>Anne</option>
+                    <option>Baba</option>
+                    <option>Diğer</option>
+                </InputSelect>
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label for="phone">Cep telefonu</label>
+                <InputText id="phone" type="tel" @bind-Value="Input.Phone" />
+                <ValidationMessage For="() => Input.Phone" />
+            </div>
+            <div>
+                <label for="email">E-posta (isteğe bağlı)</label>
+                <InputText id="email" type="email" @bind-Value="Input.Email" />
+                <ValidationMessage For="() => Input.Email" />
+            </div>
+        </div>
+        <div>
+            <label for="delivery">Teslimat</label>
+            <InputSelect id="delivery" @bind-Value="Input.Delivery">
+                <option value="@DeliveryMethod.ViaSchool">Okul aracılığıyla</option>
+                <option value="@DeliveryMethod.Shipping">Kargo ile adrese</option>
+            </InputSelect>
+        </div>
+        <div>
+            <label for="address">Kargo adresi (kargo seçildiyse)</label>
+            <InputTextArea id="address" @bind-Value="Input.ShippingAddress" rows="3" />
+            <ValidationMessage For="() => Input.ShippingAddress" />
+        </div>
+        <div>
+            <label for="note">Not (isteğe bağlı)</label>
+            <InputTextArea id="note" @bind-Value="Input.Note" rows="2" />
+        </div>
+        <div>
+            <label style="font-weight:normal">
+                <InputCheckbox @bind-Value="Input.Consent" />
+                Kişisel verilerimin siparişimin hazırlanması ve teslimi için işlenmesini kabul ediyorum
+                (<a href="gizlilik" target="_blank">aydınlatma metni</a>).
+            </label>
+            <ValidationMessage For="() => Input.Consent" />
+        </div>
+        <button type="submit" class="btn">Siparişi gönder</button>
+    </EditForm>
+}
+
+@code {
+    [CascadingParameter] private HttpContext Http { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "checkout")]
+    private CheckoutInput Input { get; set; } = default!;
+
+    private IReadOnlyList<CartItem> items = [];
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        items = await Cart.GetItemsAsync(Http);
+    }
+
+    private async Task PlaceAsync()
+    {
+        if (Input.Delivery == DeliveryMethod.Shipping && string.IsNullOrWhiteSpace(Input.ShippingAddress))
+        {
+            error = "Kargo için adres gerekli.";
+            return;
+        }
+
+        try
+        {
+            var order = await Cart.PlaceOrderAsync(Http, new CheckoutForm(
+                Input.StudentName!, Input.ParentName!, Input.Relation, Input.Phone!, Input.Email,
+                Input.Delivery, Input.ShippingAddress, Input.Note));
+            await Notifier.OrderPlacedAsync(order);
+            Nav.NavigateTo($"siparis/tamam/{order.Reference}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    public sealed class CheckoutInput
+    {
+        [Required(ErrorMessage = "Öğrencinin adı gerekli."), StringLength(200)]
+        public string? StudentName { get; set; }
+
+        [Required(ErrorMessage = "Velinin adı gerekli."), StringLength(200)]
+        public string? ParentName { get; set; }
+
+        [StringLength(50)]
+        public string? Relation { get; set; }
+
+        [Required(ErrorMessage = "Telefon gerekli."), Phone(ErrorMessage = "Geçerli bir telefon girin."), StringLength(30)]
+        public string? Phone { get; set; }
+
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta girin."), StringLength(200)]
+        public string? Email { get; set; }
+
+        public DeliveryMethod Delivery { get; set; }
+
+        [StringLength(1000)]
+        public string? ShippingAddress { get; set; }
+
+        [StringLength(1000)]
+        public string? Note { get; set; }
+
+        [Range(typeof(bool), "true", "true", ErrorMessage = "Devam etmek için onay gerekli.")]
+        public bool Consent { get; set; }
+    }
+}

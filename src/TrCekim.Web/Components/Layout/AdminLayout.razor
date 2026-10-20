@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+
+<header class="site-header admin-header">
+    <div class="container header-inner">
+        <a class="brand" href="admin">
+            <img src="img/logo.png" alt="" width="40" height="36" />
+            <span>Yönetim</span>
+        </a>
+        <nav class="site-nav" aria-label="Yönetim menüsü">
+            <NavLink href="admin" Match="NavLinkMatch.All">Özet</NavLink>
+            <NavLink href="admin/galeriler">Galeriler</NavLink>
+            <NavLink href="admin/okullar">Okullar</NavLink>
+            <NavLink href="admin/siparisler">Siparişler</NavLink>
+            <NavLink href="admin/urunler">Ürünler</NavLink>
+            <NavLink href="admin/mesajlar">Mesajlar</NavLink>
+            <a href="" target="_blank">Siteyi aç ↗</a>
+            <form method="post" action="admin/cikis" class="inline-form">
+                <AntiforgeryToken />
+                <button type="submit" class="link-button">Çıkış</button>
+            </form>
+        </nav>
+    </div>
+</header>
+
+<main class="container site-main">
+    @Body
+</main>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Beklenmeyen bir hata oluştu.
+    <a href="." class="reload">Yenile</a>
+    <span class="dismiss">🗙</span>
+</div>

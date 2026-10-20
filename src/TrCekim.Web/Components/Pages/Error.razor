@@ -1,0 +1,23 @@
+﻿@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Hata</PageTitle>
+
+<h1>Bir hata oluştu</h1>
+<p>İsteğiniz işlenirken bir sorun oluştu. Lütfen biraz sonra tekrar deneyin.</p>
+
+@if (ShowRequestId)
+{
+    <p class="muted">İstek kimliği: <code>@RequestId</code></p>
+}
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

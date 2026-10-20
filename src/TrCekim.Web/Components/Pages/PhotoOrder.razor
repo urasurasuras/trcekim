@@ -1,0 +1,126 @@
+@page "/galeri/{GalleryId:guid}/foto/{PhotoId:guid}"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject GalleryAccess Access
+@inject CartService Cart
+@inject TimeProvider Clock
+@inject IOptions<SiteOptions> SiteOptions
+
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+@if (photo is null)
+{
+    <PageTitle>Fotoğraf – @SiteOptions.Value.Name</PageTitle>
+    <h1>Fotoğraf bulunamadı</h1>
+    <p><a href="galeri">Galeri koduyla giriş yapın.</a></p>
+}
+else
+{
+    <PageTitle>Foto @photo.Number – @SiteOptions.Value.Name</PageTitle>
+    <p><a href="galeri/@GalleryId">← @photo.Gallery!.DisplayName</a></p>
+
+    <div class="order-photo">
+        <img src="foto/@photo.Id/web" alt="Foto @photo.Number" style="border-radius:var(--radius)" />
+
+        <div class="card">
+            <h1 style="margin-top:0">Foto <span class="photo-no">@photo.Number</span></h1>
+
+            @if (added)
+            {
+                <p class="notice ok" role="status">Sepete eklendi. <a href="sepet">Sepete git</a> veya <a href="galeri/@GalleryId">galeriye dön</a>.</p>
+            }
+            @if (error is not null)
+            {
+                <p class="notice error" role="alert">@error</p>
+            }
+
+            @if (products.Count == 0)
+            {
+                <p class="muted">Şu anda çevrimiçi sipariş alınmıyor. Fotoğraf numarasını not alarak bizi arayın: @SiteOptions.Value.Mobile</p>
+            }
+            else
+            {
+                <EditForm Model="Input" FormName="add" OnValidSubmit="AddAsync" method="post" class="stack">
+                    <DataAnnotationsValidator />
+                    <div>
+                        <label for="product">Ürün</label>
+                        <InputSelect id="product" @bind-Value="Input.ProductId">
+                            @foreach (var p in products)
+                            {
+                                <option value="@p.Id">@p.Name – @p.Price.ToString("C", CultureInfo.CurrentCulture)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div>
+                        <label for="qty">Adet</label>
+                        <InputNumber id="qty" @bind-Value="Input.Quantity" min="1" max="@CartService.MaxQuantity" />
+                        <ValidationMessage For="() => Input.Quantity" />
+                    </div>
+                    <button type="submit" class="btn">Sepete ekle</button>
+                </EditForm>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid GalleryId { get; set; }
+    [Parameter] public Guid PhotoId { get; set; }
+    [CascadingParameter] private HttpContext Http { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "add")]
+    private AddInput Input { get; set; } = default!;
+
+    private Photo? photo;
+    private List<Product> products = [];
+    private bool added;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        if (!Access.CanView(Http, GalleryId))
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var p = await db.Photos.AsNoTracking().Include(x => x.Gallery).ThenInclude(g => g!.School)
+            .FirstOrDefaultAsync(x => x.Id == PhotoId && x.GalleryId == GalleryId);
+        if (p is null || !p.Gallery!.IsOpen(Clock.GetUtcNow()))
+        {
+            return;
+        }
+
+        photo = p;
+        products = await db.Products.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.SortOrder).ToListAsync();
+        if (Input.ProductId == 0 && products.Count > 0)
+        {
+            Input.ProductId = products[0].Id;
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (photo is null)
+        {
+            return;
+        }
+        try
+        {
+            await Cart.AddAsync(Http, photo.Id, Input.ProductId, Input.Quantity);
+            added = true;
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    public sealed class AddInput
+    {
+        public int ProductId { get; set; }
+
+        [Range(1, CartService.MaxQuantity, ErrorMessage = "Adet 1 ile 99 arasında olmalı.")]
+        public int Quantity { get; set; } = 1;
+    }
+}

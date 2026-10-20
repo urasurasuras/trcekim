@@ -1,0 +1,143 @@
+@page "/admin/siparisler"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>Yönetim – Siparişler</PageTitle>
+
+<div class="gallery-head">
+    <h1>Siparişler</h1>
+    <div class="row" style="flex:0 0 auto">
+        <select @bind="statusFilter" @bind:after="LoadAsync" aria-label="Durum filtresi">
+            <option value="">Tüm durumlar</option>
+            @foreach (var s in Enum.GetValues<OrderStatus>())
+            {
+                <option value="@s">@Label(s)</option>
+            }
+        </select>
+        <a class="btn secondary" href="@CsvUrl" target="_blank">Baskı listesi (CSV)</a>
+    </div>
+</div>
+
+@if (orders.Count == 0)
+{
+    <p class="muted">Sipariş yok.</p>
+}
+
+<div class="table-wrap">
+    <table class="data">
+        <thead><tr><th>Sipariş</th><th>Tarih</th><th>Öğrenci / veli</th><th>Teslimat</th><th class="num">Tutar</th><th>Durum</th></tr></thead>
+        <tbody>
+            @foreach (var o in orders)
+            {
+                <tr>
+                    <td><button class="link-button photo-no" style="padding:0" @onclick="() => Toggle(o.Id)">@o.Reference</button></td>
+                    <td>@o.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@o.StudentName<br /><span class="muted">@o.ParentName · <a href="tel:@o.Phone">@o.Phone</a></span></td>
+                    <td>@(o.Delivery == DeliveryMethod.Shipping ? "Kargo" : "Okul")</td>
+                    <td class="num">@o.Total.ToString("C", Tr)</td>
+                    <td>
+                        <select value="@o.Status" @onchange="e => SetStatusAsync(o, e.Value?.ToString())" aria-label="Durum">
+                            @foreach (var s in Enum.GetValues<OrderStatus>())
+                            {
+                                <option value="@s">@Label(s)</option>
+                            }
+                        </select>
+                    </td>
+                </tr>
+                @if (expanded.Contains(o.Id))
+                {
+                    <tr>
+                        <td colspan="6" style="background:var(--bg-soft)">
+                            <table class="data" style="background:#fff">
+                                <thead><tr><th>Okul</th><th>Galeri</th><th>Foto</th><th>Ürün</th><th class="num">Adet</th><th class="num">Tutar</th></tr></thead>
+                                <tbody>
+                                    @foreach (var l in o.Lines)
+                                    {
+                                        <tr>
+                                            <td>@l.SchoolName</td>
+                                            <td>@l.GalleryName</td>
+                                            <td class="photo-no">
+                                                @if (l.PhotoId is { } pid)
+                                                {
+                                                    <a href="foto/@pid/original" target="_blank">@l.PhotoNumber</a>
+                                                }
+                                                else
+                                                {
+                                                    @l.PhotoNumber
+                                                }
+                                            </td>
+                                            <td>@l.ProductName</td>
+                                            <td class="num">@l.Quantity</td>
+                                            <td class="num">@l.LineTotal.ToString("C", Tr)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <p>
+                                @if (!string.IsNullOrEmpty(o.Relation)) { <span>Yakınlık: @o.Relation · </span> }
+                                @if (!string.IsNullOrEmpty(o.Email)) { <span>E-posta: <a href="mailto:@o.Email">@o.Email</a> · </span> }
+                                @if (!string.IsNullOrEmpty(o.ShippingAddress)) { <span>Adres: @o.ShippingAddress</span> }
+                            </p>
+                            @if (!string.IsNullOrEmpty(o.Note))
+                            {
+                                <p>Not: @o.Note</p>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
+
+    private List<Order> orders = [];
+    private HashSet<int> expanded = [];
+    private string statusFilter = "";
+
+    private string CsvUrl => string.IsNullOrEmpty(statusFilter) ? "admin/siparisler.csv" : $"admin/siparisler.csv?durum={statusFilter}";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var query = db.Orders.AsNoTracking().Include(o => o.Lines).AsQueryable();
+        if (Enum.TryParse<OrderStatus>(statusFilter, out var s))
+        {
+            query = query.Where(o => o.Status == s);
+        }
+        orders = (await query.ToListAsync()).OrderByDescending(o => o.CreatedAt).ToList();
+    }
+
+    private void Toggle(int id)
+    {
+        if (!expanded.Remove(id))
+        {
+            expanded.Add(id);
+        }
+    }
+
+    private async Task SetStatusAsync(Order o, string? value)
+    {
+        if (!Enum.TryParse<OrderStatus>(value, out var status))
+        {
+            return;
+        }
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Orders.Where(x => x.Id == o.Id).ExecuteUpdateAsync(x => x.SetProperty(p => p.Status, status));
+        o.Status = status;
+    }
+
+    private static string Label(OrderStatus s) => s switch
+    {
+        OrderStatus.Received => "Yeni",
+        OrderStatus.Confirmed => "Ödeme alındı",
+        OrderStatus.Printing => "Baskıda",
+        OrderStatus.Delivered => "Teslim edildi",
+        OrderStatus.Cancelled => "İptal",
+        _ => s.ToString(),
+    };
+}

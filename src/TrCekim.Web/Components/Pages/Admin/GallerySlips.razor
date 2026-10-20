@@ -1,0 +1,65 @@
+@page "/admin/galeriler/{Id:guid}/kartlar"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager Nav
+@inject IOptions<SiteOptions> SiteOptions
+
+<PageTitle>Kod kartları</PageTitle>
+
+@if (gallery is null)
+{
+    <h1>Galeri bulunamadı</h1>
+}
+else
+{
+    <div class="no-print" style="margin-bottom:16px">
+        <h1>Kod kartları</h1>
+        <form method="get" class="row" style="max-width:520px">
+            <div>
+                <label for="adet">Kart sayısı (sınıf mevcudu)</label>
+                <input id="adet" name="adet" type="number" min="1" max="200" value="@Count" />
+            </div>
+            <button type="submit" class="btn secondary" style="flex:0 0 auto">Güncelle</button>
+            <button type="button" class="btn" style="flex:0 0 auto" onclick="window.print()">Yazdır</button>
+        </form>
+        @if (!gallery.IsPublished)
+        {
+            <p class="notice">Galeri henüz yayında değil. Kartları dağıtmadan önce yayına almayı unutmayın.</p>
+        }
+    </div>
+
+    <div class="slips">
+        @for (var i = 0; i < Count; i++)
+        {
+            <div class="slip">
+                <div style="display:flex;gap:12px;align-items:center">
+                    <img src="img/logo.png" alt="" width="48" height="43" />
+                    <div>
+                        <strong>@gallery.School!.Name</strong><br />
+                        <span>@gallery.DisplayName</span>
+                    </div>
+                </div>
+                <p style="margin:10px 0 4px">Fotoğrafları görmek ve sipariş vermek için:</p>
+                <p style="margin:0"><strong>@SiteUrl/galeri</strong> adresine girin ve kodu yazın:</p>
+                <p class="code" style="margin:6px 0 0">@AccessCodes.Format(gallery.AccessCode)</p>
+                <p class="muted" style="margin:6px 0 0;font-size:.8rem">Bu kod yalnızca sizin sınıfınıza aittir, lütfen paylaşmayın. @SiteOptions.Value.Mobile</p>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "adet")]
+    private int? Requested { get; set; }
+
+    private Gallery? gallery;
+    private int Count => Math.Clamp(Requested ?? 24, 1, 200);
+    private string SiteUrl => Nav.BaseUri.TrimEnd('/').Replace("https://", "").Replace("http://", "");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        gallery = await db.Galleries.AsNoTracking().Include(g => g.School).FirstOrDefaultAsync(g => g.Id == Id);
+    }
+}

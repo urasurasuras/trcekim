@@ -1,0 +1,114 @@
+@page "/admin/urunler"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>Yönetim – Ürünler</PageTitle>
+
+<h1>Ürünler ve fiyatlar</h1>
+<p class="muted">Velilerin bir fotoğraf için seçebildiği baskı ve ürünler. Fiyat değişiklikleri yalnızca yeni siparişleri etkiler.</p>
+
+<div class="card" style="margin-bottom:20px">
+    <h2>@(editing.Id == 0 ? "Yeni ürün" : "Ürünü düzenle")</h2>
+    <EditForm Model="editing" OnValidSubmit="SaveAsync" FormName="product">
+        <DataAnnotationsValidator />
+        <div class="row">
+            <div>
+                <label for="name">Ad</label>
+                <InputText id="name" @bind-Value="editing.Name" placeholder="Baskı 15×23" />
+                <ValidationMessage For="() => editing.Name" />
+            </div>
+            <div>
+                <label for="price">Fiyat (TL)</label>
+                <InputNumber id="price" @bind-Value="editing.Price" step="0.01" />
+                <ValidationMessage For="() => editing.Price" />
+            </div>
+            <div>
+                <label for="order">Sıra</label>
+                <InputNumber id="order" @bind-Value="editing.SortOrder" />
+            </div>
+        </div>
+        <div style="margin-top:12px">
+            <label for="desc">Açıklama</label>
+            <InputText id="desc" @bind-Value="editing.Description" />
+        </div>
+        <p class="row" style="margin-top:12px">
+            <label style="font-weight:normal;flex:0 0 auto"><InputCheckbox @bind-Value="editing.IsActive" /> Satışta</label>
+            <button type="submit" class="btn" style="flex:0 0 auto">Kaydet</button>
+            @if (editing.Id != 0)
+            {
+                <button type="button" class="btn secondary" style="flex:0 0 auto" @onclick="() => editing = new()">Vazgeç</button>
+            }
+        </p>
+    </EditForm>
+</div>
+
+<div class="table-wrap">
+    <table class="data">
+        <thead><tr><th>Sıra</th><th>Ürün</th><th class="num">Fiyat</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var p in products)
+            {
+                <tr>
+                    <td>@p.SortOrder</td>
+                    <td>@p.Name<br /><span class="muted">@p.Description</span></td>
+                    <td class="num">@p.Price.ToString("C", CultureInfo.GetCultureInfo("tr-TR"))</td>
+                    <td>@(p.IsActive ? "Satışta" : "Pasif")</td>
+                    <td class="num"><button class="btn small secondary" @onclick="() => Edit(p)">Düzenle</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Product> products = [];
+    private ProductInput editing = new();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        products = (await db.Products.AsNoTracking().ToListAsync()).OrderBy(p => p.SortOrder).ThenBy(p => p.Name).ToList();
+    }
+
+    private void Edit(Product p) => editing = new ProductInput
+    {
+        Id = p.Id, Name = p.Name, Description = p.Description, Price = p.Price, SortOrder = p.SortOrder, IsActive = p.IsActive,
+    };
+
+    private async Task SaveAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var product = editing.Id == 0 ? db.Products.Add(new Product { Name = "" }).Entity : await db.Products.FindAsync(editing.Id);
+        if (product is null)
+        {
+            return;
+        }
+        product.Name = editing.Name!.Trim();
+        product.Description = string.IsNullOrWhiteSpace(editing.Description) ? null : editing.Description.Trim();
+        product.Price = Math.Round(editing.Price, 2);
+        product.SortOrder = editing.SortOrder;
+        product.IsActive = editing.IsActive;
+        await db.SaveChangesAsync();
+        editing = new();
+        await LoadAsync();
+    }
+
+    private sealed class ProductInput
+    {
+        public int Id { get; set; }
+
+        [Required(ErrorMessage = "Ürün adı gerekli."), StringLength(100)]
+        public string? Name { get; set; }
+
+        [StringLength(500)]
+        public string? Description { get; set; }
+
+        [Range(typeof(decimal), "0", "100000", ErrorMessage = "Geçerli bir fiyat girin.")]
+        public decimal Price { get; set; }
+
+        public int SortOrder { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}
