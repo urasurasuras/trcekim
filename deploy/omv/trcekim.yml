@@ -4,10 +4,11 @@
 #   docker compose -f trcekim.yml --env-file trcekim.env up -d --build
 services:
   trcekim:
-    # Builds straight from GitHub, so the host needs no checkout. Switch the
-    # branch to #main once the rewrite is merged.
+    # Builds from the checkout on the shared development disk (the OMV host has no
+    # git, which remote GitHub build contexts need). Point TRCEKIM_SRC at the main
+    # checkout once the rewrite is merged.
     build:
-      context: https://github.com/urasurasuras/trcekim.git#feature/blazor-rewrite
+      context: ${TRCEKIM_SRC:-/srv/dev-disk-by-uuid-03d52f78-cc5f-4477-b6b3-1cbf9daac6e0/development/trcekim/.claude/worktrees/blazor-rewrite}
     image: local/trcekim:latest
     container_name: trcekim
     restart: unless-stopped
