@@ -1,0 +1,7 @@
+# Body of the OMV stacks "trcekim" (prod) and "trcekim-dev". OMV replaces
+# CHANGE_TO_COMPOSE_NAME with the stack name. The service itself comes from
+# deploy/omv/trcekim.yml in the deployer's checkout of the stack's branch, so it
+# changes with each merge; only the env values live in OMV.
+include:
+  - path: /srv/dev-disk-by-uuid-03d52f78-cc5f-4477-b6b3-1cbf9daac6e0/appdata/trcekim-deployer/src/CHANGE_TO_COMPOSE_NAME/deploy/omv/trcekim.yml
+    env_file: /docker/docker-compose/CHANGE_TO_COMPOSE_NAME/CHANGE_TO_COMPOSE_NAME.env
