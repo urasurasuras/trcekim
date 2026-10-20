@@ -1,7 +1,8 @@
-# One TRÇekim environment (prod or dev). The deployer (infra.yml) runs this file from
-# a checkout of the environment's branch, so changes to it ship with the branch:
+# One TRÇekim environment (prod or dev). The deployer (trcekim-infra) runs this file
+# from a checkout of the environment's branch, so changes to it ship with the branch:
 #   docker compose -f deploy/omv/trcekim.yml -p <project> --env-file <project>.env up -d
-# The env files live on the host (see trcekim.env.example, trcekim-dev.env.example).
+# The env values live in the OMV stack of the same name (see omv-site.yml and
+# trcekim.env.example, trcekim-dev.env.example).
 services:
   trcekim:
     build:
@@ -38,7 +39,7 @@ services:
       - mail
 
 networks:
-  # Created by infra.yml.
+  # Shared with trcekim-infra (Mailpit). Created once: docker network create trcekim-mail
   mail:
     name: trcekim-mail
     external: true

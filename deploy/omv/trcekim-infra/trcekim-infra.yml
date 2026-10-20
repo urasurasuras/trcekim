@@ -1,6 +1,8 @@
-# Shared services for the TRÇekim environments on OMV. Copy this file and deployer/
-# to /docker/docker-compose/trcekim, next to the env files, then:
-#   docker compose -f infra.yml --env-file infra.env up -d --build
+# Shared services for the TRÇekim sites: the deployer and a local SMTP catcher.
+# OMV stack "trcekim-infra" (Services → Compose → Files), with Dockerfile and deploy.sh
+# in the OMV Dockerfile entry of the same name. See ../README.md.
+name: trcekim-infra
+
 services:
   # Local SMTP server that catches every e-mail the sites send. Nothing is relayed.
   mailpit:
@@ -22,9 +24,9 @@ services:
     networks:
       - mail
 
-  # Polls GitHub and rebuilds an environment when its branch moves (deployer/deploy.sh).
+  # Polls GitHub and rebuilds a site when its branch moves (deploy.sh).
   deployer:
-    build: ./deployer
+    build: .
     image: local/trcekim-deployer:latest
     container_name: trcekim-deployer
     restart: unless-stopped
@@ -32,7 +34,7 @@ services:
       - TZ=Europe/Istanbul
       - REPO_URL=${REPO_URL:?}
       - POLL_SECONDS=${POLL_SECONDS:-60}
-      # "<compose project>:<branch>" pairs; each project reads <project>.env from here.
+      # "<compose project>:<branch>" pairs; each project reads <project>/<project>.env from here.
       - ENVIRONMENTS=${ENVIRONMENTS:-trcekim:main trcekim-dev:dev}
       - STATE_DIR=/state
       - CONFIG_DIR=/config
@@ -41,9 +43,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Checkouts, deploy state and the read-only GitHub deploy key (ssh/).
       - ${APPDATA:?}/trcekim-deployer:/state
-      # The env files (trcekim.env, trcekim-dev.env).
-      - .:/config:ro
+      # The OMV compose folder, for the sites' env files.
+      - ${COMPOSE_DIR:-/docker/docker-compose}:/config:ro
 
 networks:
+  # Shared with the sites. Created once with: docker network create trcekim-mail
   mail:
     name: trcekim-mail
+    external: true

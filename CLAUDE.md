@@ -29,8 +29,9 @@ longer in the tree; it is kept in git history under the tag `legacy-webforms`.
 - `CNAME`, `index.html`, `media/`: the GitHub Pages "under construction" page that serves
   www.trcekim.com from `main`. Leave them alone until hosting is switched.
 - `deploy/omv/`: the owner's OMV server. `trcekim.yml` is one environment (prod = `main` on
-  port 8090, dev = `dev` on port 8091). `infra.yml` runs the deployer, which rebuilds an
-  environment when its branch moves, and Mailpit, which catches all outgoing mail. See its README.
+  port 8090, dev = `dev` on port 8091). `trcekim-infra/` runs the deployer, which rebuilds an
+  environment when its branch moves, and Mailpit, which catches all outgoing mail. All of it
+  is managed as stacks in the OMV Compose UI. See its README.
 
 ## Branches
 
